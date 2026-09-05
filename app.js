@@ -9,7 +9,7 @@ import {
   createUserWithEmailAndPassword 
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
-// Your web app's Firebase configuration
+// Web App Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyDvjeTogG8mOArbl8K1m0JHC5y2UQO-Olo",
   authDomain: "parking-ea350.firebaseapp.com",
@@ -24,11 +24,62 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Secondary Firebase Instance for creating new users without logging out current Admin
+// Secondary Firebase Instance for creating sub-admins without logging out current user
 const secondaryApp = initializeApp(firebaseConfig, "Secondary");
 const secondaryAuth = getAuth(secondaryApp);
 
 let isAdmin = false;
+
+// Default Admin Credentials
+const DEFAULT_ADMIN_EMAIL = "admin@parking.com";
+const DEFAULT_ADMIN_PASS = "Admin123456";
+
+// --- SELF-SETUP ROUTINE ---
+async function initializeSystem() {
+  try {
+    const usersRef = collection(db, "users");
+    const snapshot = await getDocs(usersRef);
+
+    // If no users exist in Firestore, create the primary admin automatically
+    if (snapshot.empty) {
+      console.log("No admin users found. Initializing primary admin...");
+      
+      try {
+        // Create user in Firebase Auth
+        const cred = await createUserWithEmailAndPassword(auth, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASS);
+        
+        // Save user profile to Firestore
+        await setDoc(doc(db, "users", cred.user.uid), {
+          full_name: "System Administrator",
+          email: DEFAULT_ADMIN_EMAIL,
+          role: "admin",
+          created_at: serverTimestamp()
+        });
+
+        showPopup(`Default Admin Created! Email: ${DEFAULT_ADMIN_EMAIL} | Pass: ${DEFAULT_ADMIN_PASS}`, "success");
+      } catch (authError) {
+        // Handle case where account exists in Auth but not in Firestore collection
+        if (authError.code === "auth/email-already-in-use") {
+          await signInWithEmailAndPassword(auth, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASS);
+        } else {
+          console.error("Auto setup error:", authError);
+        }
+      }
+    } else if (!auth.currentUser) {
+      // Auto-login with default admin if available
+      try {
+        await signInWithEmailAndPassword(auth, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASS);
+      } catch (e) {
+        console.log("Manual login required or user credentials updated.");
+      }
+    }
+  } catch (error) {
+    console.error("System initialization check failed:", error);
+  }
+}
+
+// Execute setup on script load
+initializeSystem();
 
 // --- AUTHENTICATION STATE TRACKER ---
 onAuthStateChanged(auth, (user) => {
