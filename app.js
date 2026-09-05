@@ -1,11 +1,12 @@
 // Modular SDK Imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { 
-  getFirestore, collection, addDoc, updateDoc, doc, 
+  getFirestore, collection, addDoc, updateDoc, doc, setDoc,
   query, where, orderBy, onSnapshot, getDocs, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 import { 
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut 
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, 
+  createUserWithEmailAndPassword 
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 // Your web app's Firebase configuration
@@ -18,10 +19,14 @@ const firebaseConfig = {
   appId: "1:415438583979:web:96cd9482a8262bc66d5fee"
 };
 
-// Initialize Firebase Services
+// Initialize Primary Firebase Instance
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+// Secondary Firebase Instance for creating new users without logging out current Admin
+const secondaryApp = initializeApp(firebaseConfig, "Secondary");
+const secondaryAuth = getAuth(secondaryApp);
 
 let isAdmin = false;
 
@@ -70,6 +75,76 @@ window.logoutAdmin = function() {
 // Modal Controls
 window.openLoginModal = function() { document.getElementById('login-modal').classList.remove('hidden'); };
 window.closeLoginModal = function() { document.getElementById('login-modal').classList.add('hidden'); };
+
+// --- CREATE NEW ADMIN USER LOGIC ---
+window.handleCreateUser = async function(e) {
+  e.preventDefault();
+
+  const fullName = document.getElementById('new-user-name').value;
+  const email = document.getElementById('new-user-email').value;
+  const password = document.getElementById('new-user-password').value;
+
+  try {
+    // 1. Create User in Auth using Secondary App (prevents main session logout)
+    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    const newUid = userCredential.user.uid;
+
+    // 2. Save user metadata to Firestore `users` collection
+    await setDoc(doc(db, "users", newUid), {
+      full_name: fullName,
+      email: email,
+      role: "admin",
+      created_at: serverTimestamp()
+    });
+
+    // Sign out secondary auth instance immediately
+    await signOut(secondaryAuth);
+
+    showPopup(`Admin user ${fullName} created successfully!`, "success");
+    document.getElementById('create-user-form').reset();
+    
+    loadAdminUsers();
+
+  } catch (error) {
+    showPopup("Failed to Create User: " + error.message, "error");
+  }
+};
+
+// --- LOAD ADMIN USERS ---
+async function loadAdminUsers() {
+  const container = document.getElementById('users-list');
+  container.innerHTML = `<tr><td colspan="4" class="text-center">Loading admin users...</td></tr>`;
+
+  try {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, orderBy("created_at", "desc"));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      container.innerHTML = `<tr><td colspan="4" class="text-center">No registered users found.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    snapshot.forEach((docSnapshot) => {
+      const data = docSnapshot.data();
+      const createdAt = data.created_at ? data.created_at.toDate().toLocaleDateString() : 'N/A';
+
+      html += `
+        <tr>
+          <td><strong>${data.full_name}</strong></td>
+          <td>${data.email}</td>
+          <td><span class="badge badge-bullin">${data.role}</span></td>
+          <td>${createdAt}</td>
+        </tr>
+      `;
+    });
+
+    container.innerHTML = html;
+  } catch (error) {
+    showPopup("Error loading users: " + error.message, "error");
+  }
+}
 
 // --- TRUCK ENTRY LOGIC WITH DUPLICATE CHECK ---
 window.handleTruckEntry = async function(e) {
@@ -206,10 +281,14 @@ window.switchTab = function(tabName, evt) {
   if (tabName === 'parked') {
     evt.target.classList.add('active');
     document.getElementById('parked-view').classList.remove('hidden');
-  } else {
+  } else if (tabName === 'departed') {
     evt.target.classList.add('active');
     document.getElementById('departed-view').classList.remove('hidden');
     loadDepartedHistory();
+  } else if (tabName === 'users') {
+    evt.target.classList.add('active');
+    document.getElementById('users-view').classList.remove('hidden');
+    loadAdminUsers();
   }
 };
 
