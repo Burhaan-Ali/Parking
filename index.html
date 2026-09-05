@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Truck Parking Management System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <h1>🚛 Truck Park Manager</h1>
+    </div>
+    <div class="auth-section">
+      <button id="admin-login-btn" onclick="openLoginModal()">Admin Login</button>
+      <button id="admin-logout-btn" class="hidden" onclick="logoutAdmin()">Logout (Admin)</button>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <section id="admin-entry-panel" class="card admin-only hidden">
+      <h2>Register Truck Entry</h2>
+      <form id="truck-entry-form" onsubmit="handleTruckEntry(event)">
+        <div class="form-group">
+          <label for="plate">Plate Number</label>
+          <input type="text" id="plate" placeholder="e.g. KCA-123A" required>
+        </div>
+
+        <div class="form-group">
+          <label for="vehicle-type">Vehicle Type</label>
+          <select id="vehicle-type" required>
+            <option value="bullin">Bullin</option>
+            <option value="box_body">Box Body</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="driver-name">Driver Name</label>
+          <input type="text" id="driver-name" placeholder="Full Name" required>
+        </div>
+
+        <button type="submit" class="btn-primary">Register Entry</button>
+      </form>
+    </section>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('parked', event)">Parked Trucks (<span id="parked-count">0</span>)</button>
+      <button class="tab-btn" onclick="switchTab('departed', event)">Departed History</button>
+    </div>
+
+    <section id="parked-view" class="card tab-content active">
+      <h2>Currently Parked Trucks</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Plate Number</th>
+            <th>Type</th>
+            <th>Driver Name</th>
+            <th>Entry Date & Time</th>
+            <th class="admin-only hidden">Action</th>
+          </tr>
+        </thead>
+        <tbody id="parked-list">
+          <tr><td colspan="5" class="text-center">Loading parked trucks...</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="departed-view" class="card tab-content hidden">
+      <h2>Departure History</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Plate Number</th>
+            <th>Type</th>
+            <th>Driver Name</th>
+            <th>Entry Time</th>
+            <th>Exit Time</th>
+          </tr>
+        </thead>
+        <tbody id="departed-list">
+          <tr><td colspan="5" class="text-center">Select tab to view history...</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <div id="login-modal" class="modal hidden">
+    <div class="modal-content card">
+      <span class="close-btn" onclick="closeLoginModal()">&times;</span>
+      <h2>Admin Login</h2>
+      <form onsubmit="loginAdmin(event)">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="login-email" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-password" required>
+        </div>
+        <button type="submit" class="btn-primary">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
